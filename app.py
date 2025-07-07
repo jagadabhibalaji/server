@@ -65,10 +65,30 @@ def handle_invoice():
                 'response': ocr_res.text
             }), 502
 
-        # Return OCR result (you can also store back to Salesforce)
+        # Step 5: Parse OCR response
+        ocr_json = ocr_res.json()
+        parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
+
+        merchant_name = parsed.get('merchant_name', 'Unknown')
+        total_amount = float(parsed.get('total_amount', 0))
+        currency = parsed.get('currency', 'N/A')
+
+        # Step 6: Create Invoice__c record
+        invoice_data = {
+            'Merchant_Name__c': merchant_name,
+            'Total_Amount__c': total_amount,
+            'Currency__c': currency,
+            'Case__c': case_id
+        }
+        invoice_res = sf.Invoice__c.create(invoice_data)
+
+        if not invoice_res.get('success'):
+            return jsonify({'error': 'Failed to create Invoice__c', 'details': invoice_res}), 500
+
         return jsonify({
             'status': 'success',
-            'ocrResult': ocr_res.json()
+            'ocrResult': parsed,
+            'invoiceId': invoice_res.get('id')
         }), 200
 
     except Exception as e:
