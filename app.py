@@ -51,18 +51,21 @@ def handle_invoice():
         filename = version['Title'] + '.' + version['FileExtension']
         print('[INFO] Retrieved ContentVersion:', version_id, filename)
 
-        # Step 3: Download file
+        # Step 3: Download file from Salesforce
         file_url = f"{sf.base_url}sobjects/ContentVersion/{version_id}/VersionData"
         file_res = requests.get(file_url, headers={"Authorization": "Bearer " + sf.session_id})
         if file_res.status_code != 200:
             return jsonify({'error': 'Failed to download file from Salesforce'}), 500
         print('[INFO] Downloaded file from Salesforce')
 
-        # Step 4: Send to OCR API
+        # Step 4: Send file to OCR API
         files = {
             'file': (filename, file_res.content, 'application/octet-stream')
         }
         ocr_res = requests.post(OCR_API_URL, files=files)
+        print('[DEBUG] OCR API status code:', ocr_res.status_code)
+        print('[DEBUG] Raw OCR response:', ocr_res.text)
+
         if ocr_res.status_code != 200:
             return jsonify({
                 'error': 'OCR API failed',
@@ -72,15 +75,21 @@ def handle_invoice():
 
         # Step 5: Parse OCR response
         ocr_json = ocr_res.json()
-        print('[DEBUG] Full OCR response:', ocr_json)
-
         parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
         print('[DEBUG] Parsed OCR data:', parsed)
 
+        # 🚨 Return early if parsedData is empty
+        if not parsed:
+            print('[ERROR] OCR parsing failed or missing parsedData')
+            return jsonify({
+                'error': 'OCR response missing parsedData',
+                'ocrRaw': ocr_json
+            }), 500
+
+        # Step 6: Extract and clean values
         merchant_name = parsed.get('merchant_name') or 'Unknown'
         currency = parsed.get('currency') or 'N/A'
 
-        # Handle comma-separated numbers like "17,700"
         try:
             raw_total = parsed.get('total_amount', '0')
             total_amount = float(raw_total.replace(',', '').strip())
@@ -91,17 +100,17 @@ def handle_invoice():
         print('[INFO] Final parsed values - Merchant:', merchant_name,
               'Amount:', total_amount, 'Currency:', currency)
 
-        # Step 6: Create Invoice__c record
+        # Step 7: Create Invoice__c record in Salesforce
         invoice_data = {
             'Merchant_Name__c': merchant_name,
             'Total_Amount__c': total_amount,
             'Currency__c': currency,
             'Case__c': case_id
         }
-        print('[INFO] Creating Invoice__c with data:', invoice_data)
+        print('[DEBUG] invoice_data:', invoice_data)
 
         invoice_res = sf.Invoice__c.create(invoice_data)
-        print('[INFO] Salesforce create response:', invoice_res)
+        print('[DEBUG] invoice_res:', invoice_res)
 
         if not invoice_res.get('success'):
             return jsonify({
