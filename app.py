@@ -66,21 +66,30 @@ def handle_invoice():
             }), 502
 
         # Step 5: Parse OCR response
-        ocr_json = ocr_res.json()
-        parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
+ocr_json = ocr_res.json()
+print('[DEBUG] Full OCR response:', ocr_json)
 
-        merchant_name = parsed.get('merchant_name', 'Unknown')
-        total_amount = float(parsed.get('total_amount', 0))
-        currency = parsed.get('currency', 'N/A')
+parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
 
-        # Step 6: Create Invoice__c record
-        invoice_data = {
-            'Merchant_Name__c': merchant_name,
-            'Total_Amount__c': total_amount,
-            'Currency__c': currency,
-            'Case__c': case_id
-        }
-        invoice_res = sf.Invoice__c.create(invoice_data)
+# ✅ Check if parsedData exists and has required fields
+if not parsed or not parsed.get('merchant_name'):
+    return jsonify({
+        'error': 'Parsed data is missing or incomplete',
+        'ocrRaw': ocr_json
+    }), 500
+
+merchant_name = parsed.get('merchant_name', 'Unknown')
+total_amount = float(parsed.get('total_amount') or 0)
+currency = parsed.get('currency', 'N/A')
+
+# Step 6: Create Invoice__c record
+invoice_data = {
+    'Merchant_Name__c': merchant_name,
+    'Total_Amount__c': total_amount,
+    'Currency__c': currency,
+    'Case__c': case_id
+}
+invoice_res = sf.Invoice__c.create(invoice_data)
 
         if not invoice_res.get('success'):
             return jsonify({'error': 'Failed to create Invoice__c', 'details': invoice_res}), 500
