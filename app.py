@@ -74,18 +74,18 @@ def handle_invoice():
             }), 502
 
         # Step 5: Parse OCR response
-ocr_json = ocr_res.json()
-print('[DEBUG] Raw OCR response:', ocr_json)
-
-parsed = ocr_json.get('parsedData', {})
-print('[DEBUG] Parsed OCR data:', parsed)
-
-if not parsed:
-    print('[ERROR] OCR parsing failed or missing parsedData')
-    return jsonify({
-        'error': 'OCR response missing parsedData',
-        'ocrRaw': ocr_json
-    }), 500
+        ocr_json = ocr_res.json()
+        print('[DEBUG] Raw OCR response:', ocr_json)
+        
+        parsed = ocr_json.get('parsedData', {})
+        print('[DEBUG] Parsed OCR data:', parsed)
+        
+        if not parsed:
+            print('[ERROR] OCR parsing failed or missing parsedData')
+            return jsonify({
+                'error': 'OCR response missing parsedData',
+                'ocrRaw': ocr_json
+            }), 500
 
         # Step 6: Extract and clean values
         merchant_name = parsed.get('merchant_name') or 'Unknown'
