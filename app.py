@@ -4,12 +4,13 @@ from simple_salesforce import Salesforce
 
 app = Flask(__name__)
 
-# Replace with your Salesforce credentials
+# Salesforce credentials
 SF_USERNAME = 'balaji.j@terralogic.com'
 SF_PASSWORD = 'Balu@3303'
 SF_SECURITY_TOKEN = 'lvq4mJ6Oi6a7aPv6arl8P70y3'
 SF_DOMAIN = 'login'
 
+# OCR API endpoint
 OCR_API_URL = 'https://clickscanstg.terralogic.com/ocr/invoice/'
 
 @app.route('/handle-invoice', methods=['POST'])
@@ -22,11 +23,16 @@ def handle_invoice():
         if not document_id or not case_id:
             return jsonify({'error': 'Missing documentId or caseId'}), 400
 
+        print('[INFO] Received request with documentId:', document_id, 'caseId:', case_id)
+
         # Step 1: Login to Salesforce
-        sf = Salesforce(username=SF_USERNAME,
-                        password=SF_PASSWORD,
-                        security_token=SF_SECURITY_TOKEN,
-                        domain=SF_DOMAIN)
+        sf = Salesforce(
+            username=SF_USERNAME,
+            password=SF_PASSWORD,
+            security_token=SF_SECURITY_TOKEN,
+            domain=SF_DOMAIN
+        )
+        print('[INFO] Logged into Salesforce')
 
         # Step 2: Get latest ContentVersion
         query = f"""
@@ -38,26 +44,25 @@ def handle_invoice():
         """
         result = sf.query(query)
         if not result['records']:
-            return jsonify({'error': 'No file found'}), 404
+            return jsonify({'error': 'No file found for given documentId'}), 404
 
         version = result['records'][0]
         version_id = version['Id']
         filename = version['Title'] + '.' + version['FileExtension']
+        print('[INFO] Retrieved ContentVersion:', version_id, filename)
 
-        # Step 3: Download binary file
+        # Step 3: Download file
         file_url = f"{sf.base_url}sobjects/ContentVersion/{version_id}/VersionData"
         file_res = requests.get(file_url, headers={"Authorization": "Bearer " + sf.session_id})
-
         if file_res.status_code != 200:
-            return jsonify({'error': 'Failed to download file'}), 500
+            return jsonify({'error': 'Failed to download file from Salesforce'}), 500
+        print('[INFO] Downloaded file from Salesforce')
 
-        # Step 4: Send file to OCR API
+        # Step 4: Send to OCR API
         files = {
             'file': (filename, file_res.content, 'application/octet-stream')
         }
-
         ocr_res = requests.post(OCR_API_URL, files=files)
-
         if ocr_res.status_code != 200:
             return jsonify({
                 'error': 'OCR API failed',
@@ -66,34 +71,44 @@ def handle_invoice():
             }), 502
 
         # Step 5: Parse OCR response
-ocr_json = ocr_res.json()
-print('[DEBUG] Full OCR response:', ocr_json)
+        ocr_json = ocr_res.json()
+        print('[DEBUG] Full OCR response:', ocr_json)
 
-parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
+        parsed = ocr_json.get('ocrResult', {}).get('parsedData', {})
+        print('[DEBUG] Parsed OCR data:', parsed)
 
-# ✅ Check if parsedData exists and has required fields
-if not parsed or not parsed.get('merchant_name'):
-    return jsonify({
-        'error': 'Parsed data is missing or incomplete',
-        'ocrRaw': ocr_json
-    }), 500
+        merchant_name = parsed.get('merchant_name') or 'Unknown'
+        currency = parsed.get('currency') or 'N/A'
 
-merchant_name = parsed.get('merchant_name', 'Unknown')
-total_amount = float(parsed.get('total_amount') or 0)
-currency = parsed.get('currency', 'N/A')
+        # Handle comma-separated numbers like "17,700"
+        try:
+            raw_total = parsed.get('total_amount', '0')
+            total_amount = float(raw_total.replace(',', '').strip())
+        except Exception as e:
+            print('[ERROR] Failed to convert total_amount:', raw_total)
+            total_amount = 0
 
-# Step 6: Create Invoice__c record
-invoice_data = {
-    'Merchant_Name__c': merchant_name,
-    'Total_Amount__c': total_amount,
-    'Currency__c': currency,
-    'Case__c': case_id
-}
-invoice_res = sf.Invoice__c.create(invoice_data)
+        print('[INFO] Final parsed values - Merchant:', merchant_name,
+              'Amount:', total_amount, 'Currency:', currency)
+
+        # Step 6: Create Invoice__c record
+        invoice_data = {
+            'Merchant_Name__c': merchant_name,
+            'Total_Amount__c': total_amount,
+            'Currency__c': currency,
+            'Case__c': case_id
+        }
+        print('[INFO] Creating Invoice__c with data:', invoice_data)
+
+        invoice_res = sf.Invoice__c.create(invoice_data)
+        print('[INFO] Salesforce create response:', invoice_res)
 
         if not invoice_res.get('success'):
-            return jsonify({'error': 'Failed to create Invoice__c', 'details': invoice_res}), 500
-        print('[DEBUG] Returning OCR result:', parsed)
+            return jsonify({
+                'error': 'Failed to create Invoice__c',
+                'details': invoice_res
+            }), 500
+
         return jsonify({
             'status': 'success',
             'ocrResult': parsed,
@@ -101,6 +116,7 @@ invoice_res = sf.Invoice__c.create(invoice_data)
         }), 200
 
     except Exception as e:
+        print('[ERROR] Exception occurred:', str(e))
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
