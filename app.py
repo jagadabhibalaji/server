@@ -84,7 +84,7 @@ def handle_invoice():
 
         if not invoice_res.get('success'):
             return jsonify({'error': 'Failed to create Invoice__c', 'details': invoice_res}), 500
-
+        print('[DEBUG] Returning OCR result:', parsed)
         return jsonify({
             'status': 'success',
             'ocrResult': parsed,
