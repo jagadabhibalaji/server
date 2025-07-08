@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 import requests
 from simple_salesforce import Salesforce
+import re
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -76,10 +78,12 @@ def handle_invoice():
         # Step 5: Parse OCR response
         ocr_json = ocr_res.json()
         print('[DEBUG] Raw OCR response:', ocr_json)
-        
+
         parsed = ocr_json.get('parsedData', {})
+        content = ocr_json.get('content', '')
         print('[DEBUG] Parsed OCR data:', parsed)
-        
+        print('[DEBUG] OCR content:', content)
+
         if not parsed:
             print('[ERROR] OCR parsing failed or missing parsedData')
             return jsonify({
@@ -98,15 +102,27 @@ def handle_invoice():
             print('[ERROR] Failed to convert total_amount:', raw_total)
             total_amount = 0
 
-        print('[INFO] Final parsed values - Merchant:', merchant_name,
-              'Amount:', total_amount, 'Currency:', currency)
+        # Step 6.1: Extract expiry date from content
+        expiry_date = None
+        match = re.search(r'Expiry Date[:\-]?\s*(\d{2}/\d{2}/\d{4})', content, re.IGNORECASE)
+        if match:
+            date_str = match.group(1)  # e.g., "15/06/2024"
+            try:
+                expiry_date_obj = datetime.strptime(date_str, "%d/%m/%Y")
+                expiry_date = expiry_date_obj.strftime("%Y-%m-%d")  # ISO format
+                print('[INFO] Extracted expiry date:', expiry_date)
+            except Exception as e:
+                print('[ERROR] Failed to parse expiry date:', date_str, str(e))
+        else:
+            print('[INFO] Expiry date not found in OCR content')
 
         # Step 7: Create Invoice__c record in Salesforce
         invoice_data = {
             'Merchant_Name__c': merchant_name,
             'Total_Amount__c': total_amount,
             'Currency__c': currency,
-            'Case__c': case_id
+            'Case__c': case_id,
+            'Expiry_Date__c': expiry_date if expiry_date else None
         }
         print('[DEBUG] invoice_data:', invoice_data)
 
