@@ -6,16 +6,16 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Salesforce credentials
-# SF_USERNAME = 'balaji.j@terralogic.com'
-# SF_PASSWORD = 'Balu@3303'
-# SF_SECURITY_TOKEN = '35HTQPRB7ITfGjGW50Lgz7Lt'
-# SF_DOMAIN = 'login'
-
-SF_USERNAME = 'spandu@comapany.terralogic'
-SF_PASSWORD = 'Spandana@123'
-SF_SECURITY_TOKEN = 'lvq4mJ6Oi6a7aPv6arl8P70y3'
+Salesforce credentials
+SF_USERNAME = 'balaji.j@terralogic.com'
+SF_PASSWORD = 'Balu@3303'
+SF_SECURITY_TOKEN = '35HTQPRB7ITfGjGW50Lgz7Lt'
 SF_DOMAIN = 'login'
+
+# SF_USERNAME = 'spandu@comapany.terralogic'
+# SF_PASSWORD = 'Spandana@123'
+# SF_SECURITY_TOKEN = 'lvq4mJ6Oi6a7aPv6arl8P70y3'
+# SF_DOMAIN = 'login'
 
 # OCR API endpoint
 OCR_API_URL = 'https://clickscanstg.terralogic.com/ocr/invoice/'
