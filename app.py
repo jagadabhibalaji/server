@@ -11,7 +11,7 @@ app = FastAPI()
 # Salesforce credentials
 SF_USERNAME = 'balaji.j@terralogic.com'
 SF_PASSWORD = 'Balu@3303'
-SF_SECURITY_TOKEN = '35HTQPRB7ITfGjGW50Lgz7Lt'
+SF_SECURITY_TOKEN = 'x81Rp7qI7Hz5bbv3qPPvr55M'
 SF_DOMAIN = 'login'
 
 # OCR API endpoint
