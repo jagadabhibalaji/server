@@ -17,46 +17,34 @@ def root():
     return {"message": "FastAPI middleware running on Render!"}
 
 
-@app.post("/create-batch-and-upload")
-async def create_batch_and_upload(batchName: str = Form(...), file: UploadFile = None):
-    try:
-        # ✅ Check file provided
-        if not file:
-            return {"error": "No file provided"}
+# 1️⃣ Create batch only
+@app.post("/create-batch")
+def create_batch(batchName: str = Form(...)):
+    create_resp = requests.post(
+        f"{CLICKSCAN_BASE_URL}/batch",
+        headers=HEADERS,
+        json={"name": batchName}
+    )
+    create_resp.raise_for_status()
+    return create_resp.json()
 
-        # 1️⃣ Create Batch
-        create_resp = requests.post(
-            f"{CLICKSCAN_BASE_URL}/batch",
-            headers=HEADERS,
-            json={"name": batchName}
-        )
-        create_resp.raise_for_status()
-        batch_data = create_resp.json()
 
-        if "payload" not in batch_data or len(batch_data["payload"]) == 0:
-            return {"error": "Batch creation failed", "details": batch_data}
+# 2️⃣ Upload file to existing batch
+@app.post("/upload-file")
+async def upload_file(batchId: str = Form(...), file: UploadFile = None):
+    if not file:
+        return {"error": "No file provided"}
 
-        batch_id = batch_data["payload"][0]["id"]
+    files = {
+        "file": (file.filename, await file.read(), file.content_type)
+    }
+    data = {"batch_id": batchId}
 
-        # 2️⃣ Upload File to Batch
-        files = {
-            "file": (file.filename, await file.read(), file.content_type)
-        }
-        data = {"batch_id": str(batch_id)}
-
-        upload_resp = requests.post(
-            f"{CLICKSCAN_BASE_URL}/batch_file/upload",
-            headers=HEADERS,
-            files=files,
-            data=data
-        )
-        upload_resp.raise_for_status()
-
-        return {
-            "message": "Batch created and file uploaded successfully",
-            "batch": batch_data,
-            "upload": upload_resp.json()
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
+    upload_resp = requests.post(
+        f"{CLICKSCAN_BASE_URL}/batch_file/upload",
+        headers=HEADERS,
+        files=files,
+        data=data
+    )
+    upload_resp.raise_for_status()
+    return upload_resp.json()
