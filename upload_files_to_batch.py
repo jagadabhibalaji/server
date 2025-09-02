@@ -9,7 +9,7 @@ app = FastAPI()
 CLICKSCAN_BASE = "https://clickscan.terralogic.com/client/api/v1"
 DRAWER_ID = 1  
 TENANT_ID = "PrVDQYBqqV"  
-BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoxLCJlbWFpbCI6InN1cGVyYWRtaW5AdGVycmFsb2dpYy5jb20iLCJ1c2VybmFtZSI6InN1cGVyYWRtaW4iLCJyb2xlcyI6WyJTQSJdfSwiaWF0IjoxNzU2NzkzMTY1LCJleHAiOjE3NTY4MzYzNjV9.aWLwlf_9PjV0S_g00uNyuKZqsrsWgPppwBVUBGNFM3Y" 
+BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjozLCJlbWFpbCI6InNhbGVzQHRlcnJhbG9naWMuY29tIiwidXNlcm5hbWUiOiJTQUxFU1VTRVIiLCJyb2xlcyI6WyJBRE1JTiIsIkNMSUVOVCJdfSwiaWF0IjoxNzU2Nzk2MTU1LCJleHAiOjE3NTY4MzkzNTV9.o6MIuK7h_At_vSl_-8gKXFzm5L3pMGoGcvgs8GTV760" 
 
 headers = {
     "Authorization": f"Bearer {BEARER_TOKEN}",
@@ -74,3 +74,4 @@ async def upload_to_batch(file: UploadFile = File(...), batch_name: str = Form("
         "batch_name": batch_name,
         "clickscan_response": upload_resp.json()
     }
+
